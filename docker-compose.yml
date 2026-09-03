@@ -1,0 +1,27 @@
+services:
+
+  proxy:
+    image: nginx:alpine
+    ports:
+      - "${APP_PORT}:80"      # host port (from .env) → container port 80
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro   # bind mount, read-only
+    depends_on:
+      - web                   # start web before proxy
+
+  web:
+    build: .                  # build from Dockerfile in current directory
+    env_file:
+      - .env                  # load all variables from .env file
+    depends_on:
+      - redis                 # start redis before web
+    # NO ports section — intentional!
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data      # named volume — data persists across restarts
+    # NO ports section — intentional!
+
+volumes:
+  redis_data:                 # declare the named volume
