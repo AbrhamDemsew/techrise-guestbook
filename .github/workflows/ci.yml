@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]     # run on every push to main
+  pull_request:            # run on every pull request too
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest    # GitHub gives you a clean Ubuntu VM
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4    # clone your repo into the VM
+
+      - name: Create a .env for the test run
+        run: |
+          echo "REDIS_HOST=redis" > .env
+          echo "REDIS_PORT=6379" >> .env
+          echo "APP_PORT=8080" >> .env
+          # .env is NOT in the repo (intentionally) so we create it here
+
+      - name: Start the stack
+        run: docker compose up -d --build
+
+      - name: Wait for the application to report healthy
+        run: |
+          for i in $(seq 1 20); do
+            if curl -fs http://localhost:8080/health; then exit 0; fi
+            sleep 3
+          done
+          echo "Application never became healthy"
+          docker compose logs
+          exit 1
+          # This polls /health up to 20 times (60 seconds total)
+          # If it never responds ok, it dumps logs and fails the pipeline
+
+      - name: Sign the guestbook and check it appears
+        run: |
+          curl -fs -X POST -d "name=ci" -d "message=hello" http://localhost:8080/sign
+          curl -fs http://localhost:8080 | grep -q "ci: hello"
+          # Posts a message, then checks the homepage contains it
+
+      - name: Show the logs
+        if: always()    # run this step EVEN IF an earlier step failed
+        run: docker compose logs
+
+      - name: Tear it all down
+        if: always()    # always clean up, even on failure
+        run: docker compose down -v
