@@ -10,5 +10,10 @@ COPY . .
 
 EXPOSE 5000
 
+RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+
+# Switch to that user for the CMD
+USER appuser
+
 CMD ["python", "app.py"]
 

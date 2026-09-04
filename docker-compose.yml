@@ -14,14 +14,21 @@ services:
     env_file:
       - .env                  # load all variables from .env file
     depends_on:
-      - redis                 # start redis before web
-    # NO ports section — intentional!
+      redis:
+        condition: service_healthy
+
+    
 
   redis:
     image: redis:7-alpine
     volumes:
-      - redis_data:/data      # named volume — data persists across restarts
-    # NO ports section — intentional!
+      - redis_data:/data  
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      
 
 volumes:
   redis_data:                 # declare the named volume
