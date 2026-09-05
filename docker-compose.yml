@@ -9,7 +9,8 @@ services:
     depends_on:
       - web                   # start web before proxy
 
-  web:                
+  web:    
+    build: .             
     env_file:
       - .env                  # load all variables from .env file
     depends_on:
