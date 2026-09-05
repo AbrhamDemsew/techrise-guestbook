@@ -41,6 +41,30 @@ Expected response:
 
 Three services run together:
 
+Your Browser
+     │
+     │ HTTP on port 8080
+     ▼
+┌─────────────┐
+│    proxy    │  ← nginx:alpine (the only public-facing container)
+│  (port 80   │
+│   inside)   │
+└──────┬──────┘
+       │ forwards to web:5000
+       ▼
+┌─────────────┐
+│     web     │  ← your Flask app (NO public port!)
+│  (port 5000 │
+│   inside)   │
+└──────┬──────┘
+       │ connects to redis:6379
+       ▼
+┌─────────────┐
+│    redis    │  ← Redis cache (NO public port!)
+│  (port 6379 │
+│   inside)   │
+└─────────────┘
+
 - **proxy** (`nginx:alpine`): The only public-facing service. It publishes port
   `8080` and reverse-proxies requests to the web service.
 - **web** (built from `Dockerfile`): The Flask application. It has no public
