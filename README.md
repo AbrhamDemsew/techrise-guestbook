@@ -129,16 +129,89 @@ The workflow is located at `.github/workflows/ci.yml`.
 
 ## What Broke and How I Fixed It
 
-> Replace the examples below with the actual problems, error messages, and
-> fixes from your project. The guide requires real troubleshooting experiences.
+### Problem 1: Terraform Docker Image Pull Failures
 
-### Problem 1: Nginx returned `502 Bad Gateway`
+**What happened:** I encountered repeated Docker image pull failures when running `terraform apply`. The error message was:
 
-**What happened:** The browser displayed a `502 Bad Gateway` response.
+```
+Error: Unable to read Docker image into resource: unable to pull image redis:7-alpine: 
+error pulling image redis:7-alpine: Error response from daemon: failed to resolve reference 
+"docker.io/library/redis:7-alpine": failed to do request: Head 
+"https://registry-1.docker.io/v2/library/redis/manifests/7-alpine": 
+dial tcp [2600:1f18:2148:bc01:3ebc:5fea:5e26:4a57]:443: connect: network is unreachable
+```
 
-**Why it happened:** Nginx could not reach the Flask service because the
-hostname in `nginx.conf` did not match the service name in
-`docker-compose.yml`. Docker Compose resolves services by their service names.
+**Why it happened:** My system had IPv6 connectivity issues to Docker Hub's registry. Terraform was trying to pull official Docker images but couldn't reach them due to IPv6 network unreachability errors.
+
+**How I fixed it:** I bypassed the official Docker Hub registry by using my personal Docker Hub account:
+
+1. First, I logged into Docker Hub (after fixing credential storage issues):
+   ```bash
+   docker login -u abraham37
+   ```
+
+2. I tagged the locally available images for my Docker Hub account:
+   ```bash
+   docker tag redis:7-alpine abraham37/redis:7-alpine
+   docker tag nginx:alpine abraham37/nginx:alpine
+   ```
+
+3. I pushed the images to my personal Docker Hub:
+   ```bash
+   docker push abraham37/redis:7-alpine
+   docker push abraham37/nginx:alpine
+   ```
+
+4. I updated the Terraform configuration to use my images:
+   ```hcl
+   resource "docker_image" "redis" {
+     name = "abraham37/redis:7-alpine"
+   }
+   resource "docker_image" "proxy" {
+     name = "abraham37/nginx:alpine"
+   }
+   ```
+
+This approach successfully bypassed the IPv6 connectivity issues since my Docker Hub account was accessible.
+
+### Problem 2: DNS Resolution Between Terraform Containers
+
+**What happened:** After successfully deploying the containers with Terraform, I got a `502 Bad Gateway` error when accessing the application. The web container couldn't connect to Redis, and nginx couldn't reach the web service.
+
+**Why it happened:** The containers were deployed on the same Docker network but couldn't resolve each other by hostname. When I tested DNS resolution from within the web container, I got:
+```
+socket.gaierror: [Errno -2] Name or service not known
+```
+
+**How I fixed it:** I added network aliases to the Terraform container configurations to enable proper DNS resolution:
+
+```hcl
+resource "docker_container" "redis" {
+  name    = "guestbook-redis"
+  image   = docker_image.redis.image_id
+  restart = "unless-stopped"
+
+  networks_advanced {
+    name    = docker_network.guestbook.name
+    aliases = ["redis"]  # Added this for DNS resolution
+  }
+  # ... rest of configuration
+}
+
+resource "docker_container" "web" {
+  name    = "guestbook-web"
+  image   = docker_image.web.image_id
+  restart = "unless-stopped"
+
+  networks_advanced {
+    name    = docker_network.guestbook.name
+    aliases = ["web"]  # Added this for DNS resolution
+  }
+  # ... rest of configuration
+}
+```
+
+After adding the network aliases, the containers could resolve each other by hostname (`redis`, `web`), and the application worked correctly.
 
 **What I changed:** I made sure the Flask service was named `web` and that the
 nginx configuration used the same hostname:
