@@ -9,8 +9,7 @@ services:
     depends_on:
       - web                   # start web before proxy
 
-  web:
-    build: .                  # build from Dockerfile in current directory
+  web:                
     env_file:
       - .env                  # load all variables from .env file
     depends_on:
