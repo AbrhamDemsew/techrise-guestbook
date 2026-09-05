@@ -226,7 +226,7 @@ I rebuilt and restarted the stack:
 docker compose up -d --build
 ```
 
-### Problem 2: The web service could not connect to Redis
+### Problem 3: The web service could not connect to Redis
 
 **What happened:** The health endpoint returned a degraded response, and the
 web service logs showed a Redis connection error.
