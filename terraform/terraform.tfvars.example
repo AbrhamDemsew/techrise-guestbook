@@ -1,0 +1,5 @@
+# Example terraform.tfvars file
+# Copy this file to terraform.tfvars and customize values as needed
+
+app_port = 8080
+redis_volume_name = "guestbook-redis-data"
